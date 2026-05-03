@@ -74,11 +74,11 @@ const register = asyncHandler(async (req, res) => {
   }).then(() => console.log('OTP email sent to', email))
     .catch((err) => console.error('Email send error:', err.message));
 
+  // Don't return token until email is verified
   res.status(201).json({
     success: true,
     message: 'OTP sent to your email.',
-    token: generateToken(user._id),
-    user: { _id: user._id, name: user.name, email: user.email, role: user.role, isVerified: user.isVerified },
+    user: { _id: user._id, name: user.name, email: user.email, role: user.role, isVerified: false },
   });
 });
 
@@ -95,7 +95,12 @@ const verifyOtp = asyncHandler(async (req, res) => {
   user.otp = undefined;
   user.otpExpiry = undefined;
   await user.save();
-  res.json({ success: true, message: 'Email verified successfully' });
+  res.json({
+    success: true,
+    message: 'Email verified successfully',
+    token: generateToken(user._id),
+    user: { _id: user._id, name: user.name, email: user.email, role: user.role, isVerified: true },
+  });
 });
 
 // @desc  Resend OTP
