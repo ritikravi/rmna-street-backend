@@ -1,25 +1,40 @@
-const nodemailer = require('nodemailer');
+const https = require('https');
 
 const sendEmail = async ({ to, subject, html }) => {
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST || 'smtp-relay.brevo.com',
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: false,
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
-
-  const info = await transporter.sendMail({
-    from: `"RMNA Street" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-    to,
+  const data = JSON.stringify({
+    sender: { name: 'RMNA Street', email: process.env.EMAIL_FROM || 'ritikravi7724@gmail.com' },
+    to: [{ email: to }],
     subject,
-    html,
+    htmlContent: html,
   });
 
-  console.log(`✅ Email sent to ${to}: ${info.messageId}`);
-  return info;
+  return new Promise((resolve, reject) => {
+    const req = https.request({
+      hostname: 'api.brevo.com',
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': process.env.BREVO_API_KEY,
+        'Content-Length': Buffer.byteLength(data),
+      },
+    }, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          console.log(`✅ Email sent to ${to}`);
+          resolve(body);
+        } else {
+          console.error(`❌ Email failed: ${body}`);
+          reject(new Error(`Email API error: ${body}`));
+        }
+      });
+    });
+    req.on('error', reject);
+    req.write(data);
+    req.end();
+  });
 };
 
 module.exports = { sendEmail };
