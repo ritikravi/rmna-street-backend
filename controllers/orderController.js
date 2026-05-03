@@ -56,7 +56,7 @@ const placeOrder = asyncHandler(async (req, res) => {
     await coupon.save();
   }
 
-  const shippingPrice = itemsPrice > 999 ? 0 : 99;
+  const shippingPrice = 0; // Free shipping on all orders
   const totalPrice = itemsPrice + shippingPrice - discountAmount;
 
   const order = await Order.create({
