@@ -180,4 +180,40 @@ const deleteAddress = asyncHandler(async (req, res) => {
   res.json({ success: true, addresses: user.addresses });
 });
 
-module.exports = { register, verifyOtp, resendOtp, login, getProfile, updateProfile, addAddress, deleteAddress };
+// @desc  Google OAuth login
+// @route POST /api/auth/google
+const googleLogin = asyncHandler(async (req, res) => {
+  const { credential } = req.body;
+  if (!credential) { res.status(400); throw new Error('No credential provided'); }
+
+  const { OAuth2Client } = require('google-auth-library');
+  const client = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
+
+  const ticket = await client.verifyIdToken({
+    idToken: credential,
+    audience: process.env.GOOGLE_CLIENT_ID,
+  });
+
+  const { name, email, sub: googleId } = ticket.getPayload();
+
+  let user = await User.findOne({ email });
+  if (!user) {
+    user = await User.create({
+      name,
+      email,
+      password: googleId + process.env.JWT_SECRET,
+      isVerified: true,
+    });
+  } else if (!user.isVerified) {
+    user.isVerified = true;
+    await user.save();
+  }
+
+  res.json({
+    success: true,
+    token: generateToken(user._id),
+    user: { _id: user._id, name: user.name, email: user.email, role: user.role, isVerified: true },
+  });
+});
+
+module.exports = { register, verifyOtp, resendOtp, login, googleLogin, getProfile, updateProfile, addAddress, deleteAddress };
