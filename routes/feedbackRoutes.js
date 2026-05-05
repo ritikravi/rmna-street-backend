@@ -7,7 +7,7 @@ const { protect, admin } = require('../middleware/authMiddleware');
 // Submit feedback (public)
 router.post('/', asyncHandler(async (req, res) => {
   const { name, email, type, message, rating } = req.body;
-  if (!name || !message) { res.status(400); throw new Error('Name and message required'); }
+  if (!name || !email || !message) { res.status(400); throw new Error('Name, email and message required'); }
   const feedback = await Feedback.create({ name, email, type, message, rating });
   res.status(201).json({ success: true, message: 'Feedback submitted. Thank you!', feedback });
 }));
