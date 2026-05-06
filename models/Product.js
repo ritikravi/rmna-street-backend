@@ -22,7 +22,7 @@ const productSchema = new mongoose.Schema(
     fitType: { type: String, enum: ['straight', 'baggy', 'slim', 'regular'] }, // Optional for accessories
     sizes: [
       {
-        size: { type: String, enum: ['28', '30', '32', '34', '36', '38', 'one-size'] },
+        size: { type: String, enum: ['28', '30', '32', '34', '36', '38', 'one-size', 'free-size', '6', '7', '8', '9', '10'] },
         stock: { type: Number, default: 0 },
       },
     ],
