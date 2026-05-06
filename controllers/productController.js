@@ -18,10 +18,12 @@ const buildImages = (files) => {
 // @desc  Get all products with filters
 // @route GET /api/products
 const getProducts = asyncHandler(async (req, res) => {
-  const { keyword, size, minPrice, maxPrice, fitType, sort, page = 1, limit = 12, featured } = req.query;
+  const { keyword, size, minPrice, maxPrice, fitType, category, subcategory, sort, page = 1, limit = 12, featured } = req.query;
   const query = { isActive: true };
 
   if (keyword) query.$text = { $search: keyword };
+  if (category) query.category = category;
+  if (subcategory) query.subcategory = subcategory;
   if (fitType) query.fitType = fitType;
   if (featured === 'true') query.isFeatured = true;
   if (size) query['sizes.size'] = size;
@@ -69,13 +71,15 @@ const getProduct = asyncHandler(async (req, res) => {
 // @desc  Create product (admin)
 // @route POST /api/products
 const createProduct = asyncHandler(async (req, res) => {
-  const { name, description, price, discountPrice, fitType, sizes, tags, isFeatured } = req.body;
+  const { name, description, price, discountPrice, category, subcategory, fitType, sizes, tags, isFeatured } = req.body;
   const images = buildImages(req.files);
   const product = await Product.create({
     name,
     description,
     price: Number(price),
     discountPrice: Number(discountPrice) || 0,
+    category: category || 'jeans',
+    subcategory,
     fitType,
     sizes: JSON.parse(sizes || '[]'),
     tags: tags ? tags.split(',').map((t) => t.trim()) : [],
@@ -93,11 +97,13 @@ const updateProduct = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Product not found');
   }
-  const { name, description, price, discountPrice, fitType, sizes, tags, isFeatured, isActive } = req.body;
+  const { name, description, price, discountPrice, category, subcategory, fitType, sizes, tags, isFeatured, isActive } = req.body;
   if (name) product.name = name;
   if (description) product.description = description;
   if (price) product.price = Number(price);
   if (discountPrice !== undefined) product.discountPrice = Number(discountPrice);
+  if (category) product.category = category;
+  if (subcategory !== undefined) product.subcategory = subcategory;
   if (fitType) product.fitType = fitType;
   if (sizes) product.sizes = JSON.parse(sizes);
   if (tags) product.tags = tags.split(',').map((t) => t.trim());

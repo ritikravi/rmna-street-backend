@@ -18,10 +18,11 @@ const productSchema = new mongoose.Schema(
     discountPrice: { type: Number, default: 0 },
     images: [{ public_id: String, url: String }],
     category: { type: String, default: 'jeans' },
-    fitType: { type: String, enum: ['straight', 'baggy', 'slim', 'regular'], required: true },
+    subcategory: { type: String }, // For women-accessories: earrings, nose-rings, rings, minimal-jewellery
+    fitType: { type: String, enum: ['straight', 'baggy', 'slim', 'regular'] }, // Optional for accessories
     sizes: [
       {
-        size: { type: String, enum: ['28', '30', '32', '34', '36', '38'] },
+        size: { type: String, enum: ['28', '30', '32', '34', '36', '38', 'one-size'] },
         stock: { type: Number, default: 0 },
       },
     ],
@@ -38,7 +39,9 @@ const productSchema = new mongoose.Schema(
 
 // Update totalStock before save
 productSchema.pre('save', function (next) {
-  this.totalStock = this.sizes.reduce((acc, s) => acc + s.stock, 0);
+  if (this.sizes && this.sizes.length > 0) {
+    this.totalStock = this.sizes.reduce((acc, s) => acc + s.stock, 0);
+  }
   next();
 });
 
