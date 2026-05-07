@@ -18,7 +18,7 @@ const buildImages = (files) => {
 // @desc  Get all products with filters
 // @route GET /api/products
 const getProducts = asyncHandler(async (req, res) => {
-  const { keyword, size, minPrice, maxPrice, fitType, category, subcategory, sort, page = 1, limit = 12, featured } = req.query;
+  const { keyword, size, minPrice, maxPrice, fitType, category, subcategory, sort, page = 1, limit = 12, featured, discounted } = req.query;
   const query = { isActive: true };
 
   if (keyword) query.$text = { $search: keyword };
@@ -26,6 +26,7 @@ const getProducts = asyncHandler(async (req, res) => {
   if (subcategory) query.subcategory = subcategory;
   if (fitType) query.fitType = fitType;
   if (featured === 'true') query.isFeatured = true;
+  if (discounted === 'true') query.discountPrice = { $gt: 0 };
   if (size) query['sizes.size'] = size;
   if (minPrice || maxPrice) {
     query.price = {};
