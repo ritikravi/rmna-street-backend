@@ -58,12 +58,21 @@ const otpEmailHtml = (name, otp) => `
 // @route POST /api/auth/register
 const register = asyncHandler(async (req, res) => {
   const { name, email, password, phone } = req.body;
+  
+  console.log('📝 Registration attempt:', email);
+  
   const exists = await User.findOne({ email });
-  if (exists) { res.status(400); throw new Error('Email already registered'); }
+  if (exists) { 
+    console.log('❌ Email already exists:', email);
+    res.status(400); 
+    throw new Error('Email already registered'); 
+  }
 
   // Check if user qualifies for early access reward (first 150 users)
   const userCount = await User.countDocuments({ role: 'user' });
   const isEarlyUser = userCount < 150;
+  
+  console.log(`👥 Current user count: ${userCount}, Early access: ${isEarlyUser}`);
 
   const otp = generateOtp();
   const user = await User.create({
@@ -71,24 +80,32 @@ const register = asyncHandler(async (req, res) => {
     otp,
     otpExpiry: new Date(Date.now() + 10 * 60 * 1000),
   });
+  
+  console.log('✅ User created:', user._id, email);
 
   let earlyAccessCoupon = null;
 
   // Create early access coupon for first 150 users
   if (isEarlyUser) {
-    const couponCode = `EARLY150-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    earlyAccessCoupon = await Coupon.create({
-      code: couponCode,
-      discountType: 'fixed',
-      discountValue: 1000,
-      minOrderValue: 2000,
-      maxUses: 1,
-      usedCount: 0,
-      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-      isActive: true,
-      createdBy: user._id,
-      description: `Early Access Reward - User #${userCount + 1}`,
-    });
+    try {
+      const couponCode = `EARLY150-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      earlyAccessCoupon = await Coupon.create({
+        code: couponCode,
+        discountType: 'fixed',
+        discountValue: 1000,
+        minOrderValue: 2000,
+        maxUses: 1,
+        usedCount: 0,
+        expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        isActive: true,
+        createdBy: user._id,
+        description: `Early Access Reward - User #${userCount + 1}`,
+      });
+      console.log('✅ Coupon created:', couponCode, 'for user:', email);
+    } catch (couponError) {
+      console.error('❌ Coupon creation failed:', couponError.message);
+      // Continue registration even if coupon fails
+    }
 
     // Send welcome email with coupon
     const welcomeHtml = `
