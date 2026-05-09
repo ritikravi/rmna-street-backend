@@ -1,6 +1,7 @@
 const asyncHandler = require('express-async-handler');
 const jwt = require('jsonwebtoken');
 const User = require('../models/User');
+const Coupon = require('../models/Coupon');
 const { sendEmail } = require('../utils/sendEmail');
 
 const generateToken = (id) =>
@@ -60,6 +61,10 @@ const register = asyncHandler(async (req, res) => {
   const exists = await User.findOne({ email });
   if (exists) { res.status(400); throw new Error('Email already registered'); }
 
+  // Check if user qualifies for early access reward (first 150 users)
+  const userCount = await User.countDocuments({ role: 'user' });
+  const isEarlyUser = userCount < 150;
+
   const otp = generateOtp();
   const user = await User.create({
     name, email, password, phone,
@@ -67,18 +72,93 @@ const register = asyncHandler(async (req, res) => {
     otpExpiry: new Date(Date.now() + 10 * 60 * 1000),
   });
 
-  sendEmail({
-    to: email,
-    subject: 'Your RMNA Street verification code',
-    html: otpEmailHtml(name, otp),
-  }).then(() => console.log('OTP email sent to', email))
-    .catch((err) => console.error('Email send error:', err.message));
+  let earlyAccessCoupon = null;
 
-  // Don't return token until email is verified
+  // Create early access coupon for first 150 users
+  if (isEarlyUser) {
+    const couponCode = `EARLY150-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+    earlyAccessCoupon = await Coupon.create({
+      code: couponCode,
+      discountType: 'fixed',
+      discountValue: 1000,
+      minOrderValue: 2000,
+      maxUses: 1,
+      usedCount: 0,
+      expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+      isActive: true,
+      createdBy: user._id,
+      description: `Early Access Reward - User #${userCount + 1}`,
+    });
+
+    // Send welcome email with coupon
+    const welcomeHtml = `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Inter,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:40px 0;">
+    <tr><td align="center">
+      <table width="480" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:4px;overflow:hidden;">
+        <tr>
+          <td style="background:#000000;padding:28px 40px;text-align:center;">
+            <h1 style="margin:0;color:#ffffff;font-size:28px;letter-spacing:6px;font-weight:900;">RMNA</h1>
+            <p style="margin:4px 0 0;color:#BB0000;font-size:10px;letter-spacing:4px;text-transform:uppercase;">Built Different</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px;">
+            <h2 style="margin:0 0 16px;color:#000;font-size:24px;">🎉 You're User #${userCount + 1}!</h2>
+            <p style="margin:0 0 24px;color:#555;font-size:14px;line-height:1.6;">
+              Congratulations! You're one of the first 150 users to join RMNA Street. Here's your exclusive early access reward:
+            </p>
+            <div style="background:#000;border-radius:4px;padding:32px;text-align:center;margin:0 0 24px;">
+              <p style="margin:0 0 8px;color:#BB0000;font-size:14px;font-weight:700;letter-spacing:2px;">YOUR EXCLUSIVE COUPON</p>
+              <p style="margin:0 0 16px;color:#fff;font-size:32px;font-weight:900;letter-spacing:4px;">${couponCode}</p>
+              <p style="margin:0;color:#fff;font-size:20px;font-weight:700;">₹1000 OFF</p>
+              <p style="margin:8px 0 0;color:#999;font-size:12px;">On orders above ₹2000</p>
+            </div>
+            <p style="margin:0 0 16px;color:#555;font-size:14px;line-height:1.6;">
+              <strong>Your OTP to verify email:</strong> <span style="font-size:24px;font-weight:900;color:#BB0000;">${otp}</span>
+            </p>
+            <p style="margin:0 0 8px;color:#555;font-size:13px;"><strong>Valid for:</strong> 30 days</p>
+            <p style="margin:0 0 8px;color:#555;font-size:13px;"><strong>Min order:</strong> ₹2000</p>
+            <p style="margin:0;color:#555;font-size:13px;"><strong>One-time use</strong></p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f8f8f8;padding:20px 40px;text-align:center;border-top:1px solid #eee;">
+            <p style="margin:0;color:#bbb;font-size:11px;">© ${new Date().getFullYear()} RMNA Street. All rights reserved.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>`;
+
+    sendEmail({
+      to: email,
+      subject: '🎉 Welcome to RMNA Street - Your ₹1000 OFF Coupon Inside!',
+      html: welcomeHtml,
+    }).then(() => console.log('Early access email sent to', email))
+      .catch((err) => console.error('Email send error:', err.message));
+  } else {
+    // Regular OTP email for users after 150
+    sendEmail({
+      to: email,
+      subject: 'Your RMNA Street verification code',
+      html: otpEmailHtml(name, otp),
+    }).then(() => console.log('OTP email sent to', email))
+      .catch((err) => console.error('Email send error:', err.message));
+  }
+
   res.status(201).json({
     success: true,
-    message: 'OTP sent to your email.',
+    message: isEarlyUser 
+      ? `🎉 You're user #${userCount + 1}! Check your email for your ₹1000 OFF coupon and OTP.`
+      : 'OTP sent to your email.',
     user: { _id: user._id, name: user.name, email: user.email, role: user.role, isVerified: false },
+    earlyAccess: isEarlyUser ? { userNumber: userCount + 1, couponCode: earlyAccessCoupon.code } : null,
   });
 });
 
@@ -216,4 +296,29 @@ const googleLogin = asyncHandler(async (req, res) => {
   });
 });
 
-module.exports = { register, verifyOtp, resendOtp, login, googleLogin, getProfile, updateProfile, addAddress, deleteAddress };
+// @desc  Get user's early access coupon
+// @route GET /api/auth/early-access-coupon
+const getEarlyAccessCoupon = asyncHandler(async (req, res) => {
+  const coupon = await Coupon.findOne({
+    createdBy: req.user._id,
+    code: { $regex: /^EARLY150-/ },
+    isActive: true,
+  });
+
+  if (!coupon) {
+    return res.json({ success: true, coupon: null });
+  }
+
+  res.json({
+    success: true,
+    coupon: {
+      code: coupon.code,
+      discount: coupon.discountValue,
+      minOrder: coupon.minOrderValue,
+      expiresAt: coupon.expiresAt,
+      isUsed: coupon.usedCount >= coupon.maxUses,
+    },
+  });
+});
+
+module.exports = { register, verifyOtp, resendOtp, login, googleLogin, getProfile, updateProfile, addAddress, deleteAddress, getEarlyAccessCoupon };
