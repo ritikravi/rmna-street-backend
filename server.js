@@ -11,12 +11,7 @@ connectDB();
 const app = express();
 
 app.use(cors({
-  origin: [
-    process.env.CLIENT_URL,
-    'https://rmnastreet.com',
-    'https://www.rmnastreet.com',
-    'http://localhost:5173',
-  ],
+  origin: true,
   credentials: true,
 }));
 app.use(express.json());
