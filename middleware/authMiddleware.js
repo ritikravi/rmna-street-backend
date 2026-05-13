@@ -18,15 +18,26 @@ const protect = asyncHandler(async (req, res, next) => {
       res.status(401);
       throw new Error('User not found');
     }
+    
+    // Log IP for security monitoring
+    req.userIp = req.headers['x-forwarded-for'] || req.connection.remoteAddress;
+    
     next();
-  } catch {
+  } catch (error) {
     res.status(401);
     throw new Error('Not authorized, token failed');
   }
 });
 
 const admin = (req, res, next) => {
-  if (req.user?.role === 'admin') return next();
+  if (req.user?.role === 'admin') {
+    // Log admin access
+    console.log(`[ADMIN ACCESS] ${req.user.email} from ${req.userIp} - ${req.method} ${req.originalUrl}`);
+    return next();
+  }
+  
+  // Log unauthorized admin access attempts
+  console.warn(`[UNAUTHORIZED ADMIN ATTEMPT] ${req.user?.email || 'Unknown'} from ${req.userIp}`);
   res.status(403);
   throw new Error('Admin access required');
 };
