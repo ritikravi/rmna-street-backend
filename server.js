@@ -15,6 +15,9 @@ connectDB();
 
 const app = express();
 
+// Trust proxy - Required for Render and rate limiting
+app.set('trust proxy', 1);
+
 // Force HTTPS in production
 app.use(httpsRedirect);
 
