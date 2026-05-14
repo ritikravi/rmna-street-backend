@@ -3,6 +3,8 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const Coupon = require('../models/Coupon');
+const sendEmail = require('../utils/sendEmail');
+const { orderStatusUpdateEmail } = require('../utils/emailTemplates');
 
 // @desc  Dashboard stats
 // @route GET /api/admin/dashboard
@@ -50,15 +52,33 @@ const getAllOrders = asyncHandler(async (req, res) => {
 // @route PUT /api/admin/orders/:id/status
 const updateOrderStatus = asyncHandler(async (req, res) => {
   const { status, note } = req.body;
-  const order = await Order.findById(req.params.id);
+  const order = await Order.findById(req.params.id).populate('user', 'name email');
   if (!order) {
     res.status(404);
     throw new Error('Order not found');
   }
+  
+  const oldStatus = order.orderStatus;
   order.orderStatus = status;
   order.statusHistory.push({ status, note });
   if (status === 'Delivered') order.deliveredAt = new Date();
   await order.save();
+
+  // Send status update email if status changed
+  if (oldStatus !== status && ['Confirmed', 'Shipped', 'Delivered', 'Cancelled'].includes(status)) {
+    try {
+      const emailStatus = status.toLowerCase();
+      await sendEmail({
+        to: order.user.email,
+        subject: `Order ${status} #${order._id.toString().slice(-8).toUpperCase()} - RMNA Street`,
+        html: orderStatusUpdateEmail(order, order.user, emailStatus === 'confirmed' ? 'processing' : emailStatus),
+      });
+      console.log(`✅ Order status update email sent to ${order.user.email} (${status})`);
+    } catch (emailError) {
+      console.error('❌ Failed to send status update email:', emailError.message);
+    }
+  }
+
   res.json({ success: true, order });
 });
 
