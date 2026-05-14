@@ -1,40 +1,27 @@
-const https = require('https');
+const nodemailer = require('nodemailer');
 
 const sendEmail = async ({ to, subject, html }) => {
-  const data = JSON.stringify({
-    sender: { name: 'RMNA Street', email: process.env.EMAIL_FROM || 'ritikravi7724@gmail.com' },
-    to: [{ email: to }],
-    subject,
-    htmlContent: html,
+  // Create transporter
+  const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port: process.env.EMAIL_PORT,
+    secure: false, // true for 465, false for other ports
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
   });
 
-  return new Promise((resolve, reject) => {
-    const req = https.request({
-      hostname: 'api.brevo.com',
-      path: '/v3/smtp/email',
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'api-key': process.env.BREVO_API_KEY,
-        'Content-Length': Buffer.byteLength(data),
-      },
-    }, (res) => {
-      let body = '';
-      res.on('data', (chunk) => body += chunk);
-      res.on('end', () => {
-        if (res.statusCode >= 200 && res.statusCode < 300) {
-          console.log(`✅ Email sent to ${to}`);
-          resolve(body);
-        } else {
-          console.error(`❌ Email failed: ${body}`);
-          reject(new Error(`Email API error: ${body}`));
-        }
-      });
-    });
-    req.on('error', reject);
-    req.write(data);
-    req.end();
+  // Send email
+  const info = await transporter.sendMail({
+    from: `"RMNA Street" <${process.env.EMAIL_USER}>`,
+    to,
+    subject,
+    html,
   });
+
+  console.log(`✅ Email sent to ${to}: ${info.messageId}`);
+  return info;
 };
 
 module.exports = { sendEmail };
