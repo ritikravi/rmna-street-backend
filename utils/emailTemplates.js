@@ -39,10 +39,10 @@ const orderConfirmationEmail = (order, user) => `
                 </tr>
               </thead>
               <tbody>
-                ${order.items.map(item => `
+                ${order.orderItems.map(item => `
                   <tr style="border-bottom:1px solid #eee;">
                     <td style="padding:16px 0;">
-                      <p style="margin:0;color:#000;font-size:14px;font-weight:600;">${item.product?.name || 'Product'}</p>
+                      <p style="margin:0;color:#000;font-size:14px;font-weight:600;">${item.name || 'Product'}</p>
                       <p style="margin:4px 0 0;color:#666;font-size:12px;">Size: ${item.size}</p>
                     </td>
                     <td style="padding:16px 0;text-align:center;color:#666;font-size:14px;">${item.quantity}</td>
@@ -63,10 +63,10 @@ const orderConfirmationEmail = (order, user) => `
                   <td style="padding:4px 0;color:#666;font-size:14px;">Shipping</td>
                   <td style="padding:4px 0;text-align:right;color:#000;font-size:14px;">₹${order.shippingPrice}</td>
                 </tr>
-                ${order.discount > 0 ? `
+                ${order.discountAmount > 0 ? `
                 <tr>
                   <td style="padding:4px 0;color:#BB0000;font-size:14px;">Discount</td>
-                  <td style="padding:4px 0;text-align:right;color:#BB0000;font-size:14px;">-₹${order.discount}</td>
+                  <td style="padding:4px 0;text-align:right;color:#BB0000;font-size:14px;">-₹${order.discountAmount}</td>
                 </tr>
                 ` : ''}
                 <tr>
@@ -81,7 +81,7 @@ const orderConfirmationEmail = (order, user) => `
               <p style="margin:0 0 8px;color:#666;font-size:12px;text-transform:uppercase;letter-spacing:1px;">Shipping Address</p>
               <p style="margin:0;color:#000;font-size:14px;line-height:1.6;">
                 ${order.shippingAddress.fullName}<br/>
-                ${order.shippingAddress.address}<br/>
+                ${order.shippingAddress.street || order.shippingAddress.address || ''}<br/>
                 ${order.shippingAddress.city}, ${order.shippingAddress.state} ${order.shippingAddress.pincode}<br/>
                 Phone: ${order.shippingAddress.phone}
               </p>

@@ -3,7 +3,7 @@ const Order = require('../models/Order');
 const Cart = require('../models/Cart');
 const Product = require('../models/Product');
 const Coupon = require('../models/Coupon');
-const sendEmail = require('../utils/sendEmail');
+const { sendEmail } = require('../utils/sendEmail');
 const { orderConfirmationEmail, orderStatusUpdateEmail } = require('../utils/emailTemplates');
 
 // @desc  Place order
@@ -85,15 +85,12 @@ const placeOrder = asyncHandler(async (req, res) => {
   // Clear cart
   await Cart.findOneAndUpdate({ user: req.user._id }, { items: [] });
 
-  // Populate order with full details for email
-  const populatedOrder = await Order.findById(order._id).populate('orderItems.product');
-
-  // Send order confirmation email
+  // Send order confirmation email immediately
   try {
     await sendEmail({
       to: req.user.email,
       subject: `Order Confirmed #${order._id.toString().slice(-8).toUpperCase()} - RMNA Street`,
-      html: orderConfirmationEmail(populatedOrder, req.user),
+      html: orderConfirmationEmail(order, req.user),
     });
     console.log(`✅ Order confirmation email sent to ${req.user.email}`);
   } catch (emailError) {

@@ -3,7 +3,7 @@ const Order = require('../models/Order');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const Coupon = require('../models/Coupon');
-const sendEmail = require('../utils/sendEmail');
+const { sendEmail } = require('../utils/sendEmail');
 const { orderStatusUpdateEmail } = require('../utils/emailTemplates');
 
 // @desc  Dashboard stats
