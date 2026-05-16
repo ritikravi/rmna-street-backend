@@ -1,30 +1,57 @@
-const nodemailer = require('nodemailer');
+const https = require('https');
 
 const sendEmail = async ({ to, subject, html }) => {
-  // Create transporter with increased timeout
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: process.env.EMAIL_PORT,
-    secure: false, // true for 465, false for other ports
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
+  // Use Brevo API instead of SMTP (more reliable on Render)
+  const data = JSON.stringify({
+    sender: { 
+      name: 'RMNA Street', 
+      email: process.env.EMAIL_USER || 'noreply@rmnastreet.com' 
     },
-    connectionTimeout: 10000, // 10 seconds
-    greetingTimeout: 10000,
-    socketTimeout: 10000,
-  });
-
-  // Send email
-  const info = await transporter.sendMail({
-    from: `"RMNA Street" <${process.env.EMAIL_USER}>`,
-    to,
+    to: [{ email: to }],
     subject,
-    html,
+    htmlContent: html,
   });
 
-  console.log(`✅ Email sent to ${to}: ${info.messageId}`);
-  return info;
+  return new Promise((resolve, reject) => {
+    const options = {
+      hostname: 'api.brevo.com',
+      path: '/v3/smtp/email',
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'api-key': process.env.EMAIL_PASS, // Using EMAIL_PASS as Brevo API key
+        'Content-Length': Buffer.byteLength(data),
+      },
+      timeout: 10000, // 10 second timeout
+    };
+
+    const req = https.request(options, (res) => {
+      let body = '';
+      res.on('data', (chunk) => body += chunk);
+      res.on('end', () => {
+        if (res.statusCode >= 200 && res.statusCode < 300) {
+          console.log(`✅ Email sent to ${to}`);
+          resolve(body);
+        } else {
+          console.error(`❌ Email API error (${res.statusCode}):`, body);
+          reject(new Error(`Email API error: ${body}`));
+        }
+      });
+    });
+
+    req.on('error', (error) => {
+      console.error('❌ Email request error:', error.message);
+      reject(error);
+    });
+
+    req.on('timeout', () => {
+      req.destroy();
+      reject(new Error('Email request timeout'));
+    });
+
+    req.write(data);
+    req.end();
+  });
 };
 
 module.exports = { sendEmail };
