@@ -1,6 +1,9 @@
 const asyncHandler = require('express-async-handler');
 const Product = require('../models/Product');
+const NotificationSubscription = require('../models/NotificationSubscription');
 const { cloudinary, hasCloudinary } = require('../config/cloudinary');
+const { sendEmail } = require('../utils/sendEmail');
+const { backInStockEmail } = require('../utils/emailTemplates');
 
 // Helper: build image objects from uploaded files
 const buildImages = (files) => {
@@ -18,7 +21,7 @@ const buildImages = (files) => {
 // @desc  Get all products with filters
 // @route GET /api/products
 const getProducts = asyncHandler(async (req, res) => {
-  const { keyword, size, minPrice, maxPrice, fitType, category, subcategory, sort, page = 1, limit = 12, featured, discounted } = req.query;
+  const { keyword, size, minPrice, maxPrice, fitType, category, subcategory, sort, page = 1, limit = 12, featured, discounted, color, brand } = req.query;
   const query = { isActive: true };
 
   if (keyword) query.$text = { $search: keyword };
@@ -28,6 +31,16 @@ const getProducts = asyncHandler(async (req, res) => {
   if (featured === 'true') query.isFeatured = true;
   if (discounted === 'true') query.discountPrice = { $gt: 0 };
   if (size) query['sizes.size'] = size;
+  
+  // NEW: Color filter
+  if (color) query.color = color;
+  
+  // NEW: Brand filter (supports multiple brands)
+  if (brand) {
+    const brands = brand.split(',').map(b => b.trim());
+    query.brand = { $in: brands };
+  }
+  
   if (minPrice || maxPrice) {
     query.price = {};
     if (minPrice) query.price.$gte = Number(minPrice);
@@ -98,7 +111,11 @@ const updateProduct = asyncHandler(async (req, res) => {
     res.status(404);
     throw new Error('Product not found');
   }
-  const { name, description, price, discountPrice, category, subcategory, fitType, sizes, tags, isFeatured, isActive } = req.body;
+  
+  // Track old stock for notification trigger
+  const oldStock = product.totalStock;
+  
+  const { name, description, price, discountPrice, category, subcategory, fitType, sizes, tags, isFeatured, isActive, color, brand, sizeGuide, highResImages } = req.body;
   if (name) product.name = name;
   if (description) product.description = description;
   if (price) product.price = Number(price);
@@ -110,6 +127,9 @@ const updateProduct = asyncHandler(async (req, res) => {
   if (tags) product.tags = tags.split(',').map((t) => t.trim());
   if (isFeatured !== undefined) product.isFeatured = isFeatured === 'true';
   if (isActive !== undefined) product.isActive = isActive === 'true';
+  if (color) product.color = color;
+  if (brand) product.brand = brand;
+  if (sizeGuide) product.sizeGuide = JSON.parse(sizeGuide);
 
   // Add new images if uploaded
   if (req.files?.length) {
@@ -118,6 +138,13 @@ const updateProduct = asyncHandler(async (req, res) => {
   }
 
   await product.save();
+  
+  // NEW: Trigger stock notifications if stock changed from 0 to >0
+  const newStock = product.totalStock;
+  if (oldStock === 0 && newStock > 0) {
+    triggerStockNotifications(product._id).catch(console.error);
+  }
+  
   res.json({ success: true, product });
 });
 
@@ -151,4 +178,64 @@ const deleteProduct = asyncHandler(async (req, res) => {
   res.json({ success: true, message: 'Product deleted' });
 });
 
-module.exports = { getProducts, getProduct, createProduct, updateProduct, deleteProduct, deleteProductImage };
+// @desc  Get filter metadata (available colors, brands, price range)
+// @route GET /api/products/filters
+const getFilterMetadata = asyncHandler(async (req, res) => {
+  const { category } = req.query;
+  const query = { isActive: true };
+  if (category) query.category = category;
+
+  const products = await Product.find(query).select('color brand price');
+  
+  const colors = [...new Set(products.map(p => p.color).filter(Boolean))];
+  const brands = [...new Set(products.map(p => p.brand).filter(Boolean))];
+  const prices = products.map(p => p.price);
+  const minPrice = prices.length ? Math.min(...prices) : 0;
+  const maxPrice = prices.length ? Math.max(...prices) : 10000;
+
+  res.json({
+    success: true,
+    filters: {
+      colors: colors.sort(),
+      brands: brands.sort(),
+      priceRange: { min: minPrice, max: maxPrice }
+    }
+  });
+});
+
+// Helper: Trigger stock notifications
+async function triggerStockNotifications(productId) {
+  try {
+    const product = await Product.findById(productId);
+    if (!product) return;
+
+    const subscriptions = await NotificationSubscription.find({ 
+      product: productId, 
+      notified: false 
+    });
+
+    console.log(`📧 Sending ${subscriptions.length} back-in-stock notifications for ${product.name}`);
+
+    for (const subscription of subscriptions) {
+      try {
+        await sendEmail(backInStockEmail(product, subscription.email));
+        await NotificationSubscription.findByIdAndDelete(subscription._id);
+        console.log(`✅ Notification sent to ${subscription.email}`);
+      } catch (error) {
+        console.error(`❌ Failed to send notification to ${subscription.email}:`, error.message);
+      }
+    }
+  } catch (error) {
+    console.error('Error triggering stock notifications:', error);
+  }
+}
+
+module.exports = { 
+  getProducts, 
+  getProduct, 
+  createProduct, 
+  updateProduct, 
+  deleteProduct, 
+  deleteProductImage,
+  getFilterMetadata 
+};

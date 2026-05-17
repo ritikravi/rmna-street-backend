@@ -33,6 +33,36 @@ const productSchema = new mongoose.Schema(
     reviews: [reviewSchema],
     numReviews: { type: Number, default: 0 },
     rating: { type: Number, default: 0 },
+    // NEW FIELDS FOR ADVANCED FEATURES
+    color: { 
+      type: String, 
+      required: true,
+      default: 'black',
+      enum: ['black', 'white', 'blue', 'red', 'green', 'yellow', 'pink', 'purple', 'gray', 'brown', 'beige', 'navy', 'maroon', 'olive', 'orange', 'multicolor']
+    },
+    brand: { 
+      type: String, 
+      required: true,
+      default: 'RMNA',
+      trim: true
+    },
+    sizeGuide: {
+      category: { 
+        type: String,
+        enum: ['mens-shirts', 'womens-jeans', 'girls-kurti', 'girls-jeans', 'womens-accessories']
+      },
+      measurements: [{
+        size: String,
+        chest: Number,
+        waist: Number,
+        hip: Number,
+        length: Number
+      }]
+    },
+    highResImages: [{ 
+      public_id: String, 
+      url: String 
+    }]
   },
   { timestamps: true }
 );
@@ -47,5 +77,11 @@ productSchema.pre('save', function (next) {
 
 // Text index for search
 productSchema.index({ name: 'text', description: 'text', tags: 'text' });
+
+// Indexes for filtering
+productSchema.index({ color: 1 });
+productSchema.index({ brand: 1 });
+productSchema.index({ price: 1 });
+productSchema.index({ color: 1, brand: 1, price: 1 }); // Compound index for multi-filter queries
 
 module.exports = mongoose.model('Product', productSchema);

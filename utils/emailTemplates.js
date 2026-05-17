@@ -169,7 +169,72 @@ const orderStatusUpdateEmail = (order, user, status) => {
 `;
 };
 
+const backInStockEmail = (product, userEmail) => `
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="margin:0;padding:0;background:#f4f4f4;font-family:Inter,Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f4f4;padding:40px 0;">
+    <tr><td align="center">
+      <table width="600" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:4px;overflow:hidden;">
+        <tr>
+          <td style="background:#000000;padding:28px 40px;text-align:center;">
+            <h1 style="margin:0;color:#ffffff;font-size:28px;letter-spacing:6px;font-weight:900;">RMNA</h1>
+            <p style="margin:4px 0 0;color:#BB0000;font-size:10px;letter-spacing:4px;text-transform:uppercase;">Built Different</p>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding:40px;">
+            <h2 style="margin:0 0 16px;color:#000;font-size:24px;">Good News! 🎉</h2>
+            <p style="margin:0 0 24px;color:#555;font-size:14px;line-height:1.6;">
+              The product you were waiting for is back in stock!
+            </p>
+            
+            <!-- Product Card -->
+            <div style="border:1px solid #eee;border-radius:4px;overflow:hidden;margin:0 0 24px;">
+              ${product.images && product.images[0] ? `
+              <img src="${product.images[0].url}" alt="${product.name}" style="width:100%;height:auto;display:block;" />
+              ` : ''}
+              <div style="padding:20px;">
+                <h3 style="margin:0 0 8px;color:#000;font-size:18px;font-weight:700;">${product.name}</h3>
+                <p style="margin:0 0 16px;color:#666;font-size:14px;line-height:1.6;">${product.description.substring(0, 100)}...</p>
+                <div style="margin:0 0 16px;">
+                  ${product.discountPrice > 0 ? `
+                    <span style="color:#BB0000;font-size:20px;font-weight:900;">₹${product.discountPrice}</span>
+                    <span style="color:#999;font-size:16px;text-decoration:line-through;margin-left:8px;">₹${product.price}</span>
+                  ` : `
+                    <span style="color:#000;font-size:20px;font-weight:900;">₹${product.price}</span>
+                  `}
+                </div>
+                <a href="https://rmnastreet.com/products/${product._id}" style="display:inline-block;background:#000;color:#fff;padding:12px 32px;text-decoration:none;font-size:14px;font-weight:600;border-radius:4px;">
+                  Shop Now
+                </a>
+              </div>
+            </div>
+            
+            <p style="margin:0;color:#666;font-size:13px;line-height:1.6;">
+              Hurry! Stock is limited. Get yours before it's gone again.
+            </p>
+          </td>
+        </tr>
+        <tr>
+          <td style="background:#f8f8f8;padding:20px 40px;text-align:center;border-top:1px solid #eee;">
+            <p style="margin:0 0 8px;color:#000;font-size:14px;font-weight:600;">Questions?</p>
+            <p style="margin:0;color:#666;font-size:12px;">
+              Contact us at <a href="mailto:ritikravi7724@gmail.com" style="color:#000;">ritikravi7724@gmail.com</a>
+            </p>
+            <p style="margin:16px 0 0;color:#bbb;font-size:11px;">© ${new Date().getFullYear()} RMNA Street. All rights reserved.</p>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>
+`;
+
 module.exports = {
   orderConfirmationEmail,
   orderStatusUpdateEmail,
+  backInStockEmail,
 };
