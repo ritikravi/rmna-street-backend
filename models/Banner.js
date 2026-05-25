@@ -18,6 +18,22 @@ const bannerSchema = new mongoose.Schema({
     type: String,
     default: '/products'
   },
+  // Filter settings for products
+  minDiscountPercent: {
+    type: Number,
+    default: 0,
+    min: 0,
+    max: 100
+  },
+  targetCategories: [{
+    type: String,
+    enum: ['jeans', 'mens-shirts', 'girls-jeans', 'girls-kurti', 'women-accessories']
+  }],
+  targetGender: {
+    type: String,
+    enum: ['all', 'men', 'women', 'girls'],
+    default: 'all'
+  },
   isActive: {
     type: Boolean,
     default: true

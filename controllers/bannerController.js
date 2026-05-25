@@ -7,7 +7,34 @@ exports.getActiveBanner = async (req, res) => {
     if (!banner) {
       return res.status(200).json({ banner: null });
     }
-    res.status(200).json({ banner });
+    
+    // Generate smart button link based on filters
+    let smartLink = banner.buttonLink;
+    const params = new URLSearchParams();
+    
+    if (banner.minDiscount > 0) {
+      params.append('minDiscount', banner.minDiscount);
+    }
+    
+    if (banner.targetGender && banner.targetGender !== 'all') {
+      params.append('gender', banner.targetGender);
+    }
+    
+    if (banner.targetCategories && banner.targetCategories.length > 0) {
+      params.append('categories', banner.targetCategories.join(','));
+    }
+    
+    // Append params to link if any exist
+    if (params.toString()) {
+      smartLink = `${banner.buttonLink}${banner.buttonLink.includes('?') ? '&' : '?'}${params.toString()}`;
+    }
+    
+    res.status(200).json({ 
+      banner: {
+        ...banner.toObject(),
+        smartLink // Send the computed smart link
+      }
+    });
   } catch (error) {
     console.error('Get active banner error:', error);
     res.status(500).json({ message: 'Failed to fetch banner' });
