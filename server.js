@@ -94,6 +94,7 @@ app.use('/api/payment', require('./routes/paymentRoutes'));
 app.use('/api/feedback', require('./routes/feedbackRoutes'));
 app.use('/api/notifications', require('./routes/notificationRoutes'));
 app.use('/api/newsletter', require('./routes/newsletterRoutes'));
+app.use('/api/banners', require('./routes/bannerRoutes'));
 
 app.get('/', (req, res) => res.json({ message: 'RMNA Street API Running' }));
 
