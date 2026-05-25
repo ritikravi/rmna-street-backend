@@ -1,7 +1,7 @@
 {
   "name": "rmna-street-backend",
-  "version": "1.0.0",
-  "description": "RMNA Street Backend API",
+  "version": "1.0.1",
+  "description": "RMNA Street Backend API with Newsletter",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
