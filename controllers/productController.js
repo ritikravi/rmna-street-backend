@@ -21,7 +21,7 @@ const buildImages = (files) => {
 // @desc  Get all products with filters
 // @route GET /api/products
 const getProducts = asyncHandler(async (req, res) => {
-  const { keyword, size, minPrice, maxPrice, fitType, category, subcategory, sort, page = 1, limit = 12, featured, discounted, color, brand } = req.query;
+  const { keyword, size, minPrice, maxPrice, fitType, category, subcategory, sort, page = 1, limit = 12, featured, discounted, color, brand, minDiscount, gender, categories } = req.query;
   const query = { isActive: true };
 
   if (keyword) query.$text = { $search: keyword };
@@ -41,6 +41,23 @@ const getProducts = asyncHandler(async (req, res) => {
     query.brand = { $in: brands };
   }
   
+  // NEW: Gender filter (maps to category)
+  if (gender && gender !== 'all') {
+    if (gender === 'men') {
+      query.category = { $in: ['jeans', 'shirts'] };
+    } else if (gender === 'women') {
+      query.category = 'accessories';
+    } else if (gender === 'girls') {
+      query.category = { $in: ['girls-jeans', 'girls-kurti'] };
+    }
+  }
+  
+  // NEW: Categories filter (from banner)
+  if (categories) {
+    const categoryList = categories.split(',').map(c => c.trim());
+    query.category = { $in: categoryList };
+  }
+  
   if (minPrice || maxPrice) {
     query.price = {};
     if (minPrice) query.price.$gte = Number(minPrice);
@@ -56,18 +73,30 @@ const getProducts = asyncHandler(async (req, res) => {
   const sortBy = sortOptions[sort] || { createdAt: -1 };
 
   const total = await Product.countDocuments(query);
-  const products = await Product.find(query)
+  let products = await Product.find(query)
     .sort(sortBy)
     .skip((page - 1) * limit)
     .limit(Number(limit))
     .select('-reviews');
+
+  // NEW: Filter by minimum discount percentage (post-query filter)
+  if (minDiscount && Number(minDiscount) > 0) {
+    const minDiscountPercent = Number(minDiscount);
+    products = products.filter(product => {
+      if (product.discountPrice > 0 && product.price > 0) {
+        const discountPercent = Math.round(((product.price - product.discountPrice) / product.price) * 100);
+        return discountPercent >= minDiscountPercent;
+      }
+      return false;
+    });
+  }
 
   res.json({
     success: true,
     products,
     page: Number(page),
     pages: Math.ceil(total / limit),
-    total,
+    total: products.length, // Update total to reflect filtered count
   });
 });
 
